@@ -152,7 +152,10 @@ function init(paramarr, enableMQ, baseel) {
           showSyntaxCheckMQ(qn);
         }
         //document.getElementById("pbtn"+qn).style.display = 'none';
-      } //TODO: when matrix, clear preview on further input
+      }  //TODO: when matrix, clear preview on further input
+    } else if (params.matrixsize) {
+        $("input[id^=qn"+qn+"-]").on('input', (function(thisqn) { 
+          return function () {syntaxCheckMQ(thisqn) }; })(qn));
     } else if (document.getElementById("qn"+qn)) {
         document.getElementById("qn"+qn).addEventListener('keyup', (function(thisqn) { 
             return function () {syntaxCheckMQ(thisqn) }; })(qn));
@@ -465,10 +468,11 @@ function initShowAnswer2() {
 		var idnext = $(this).siblings("div:first-of-type").attr("id");
 		$(this).attr("aria-expanded",false).attr("aria-controls",idnext)
 		  .off("click.sashow").on("click.sashow", function() {
-			$(this).attr("aria-expanded",true)
+            var curstate = ($(this).attr("aria-expanded") == 'true');
+			$(this).attr("aria-expanded",!curstate)
 		  	  .siblings("div:first-of-type")
-				.attr("aria-expanded",true).attr("aria-hidden",false)
-				.removeClass("hidden");
+				.attr("aria-expanded",!curstate).attr("aria-hidden",curstate)
+				.toggleClass("hidden",curstate);
 		});
 	});
 }
@@ -761,7 +765,7 @@ function normalizemathunicode(str) {
 	str = str.replace(/⁰/g,"^0").replace(/¹/g,"^1").replace(/²/g,"^2").replace(/³/g,"^3").replace(/⁴/g,"^4").replace(/⁵/g,"^5").replace(/⁶/g,"^6").replace(/⁷/g,"^7").replace(/⁸/g,"^8").replace(/⁹/g,"^9");
 	str = str.replace(/\u2329/g, "<").replace(/\u232a/g, ">");
 	str = str.replace(/₀/g,"_0").replace(/₁/g,"_1").replace(/₂/g,"_2").replace(/₃/g,"_3");
-	str = str.replace(/\bOO\b/gi,"oo").replace(/°/g,'degree');
+	str = str.replace(/\b(OO|infty)\b/gi,"oo").replace(/°/g,'degree');
 	str = str.replace(/θ/g,"theta").replace(/ϕ/g,"phi").replace(/φ/g,"phi").replace(/π/g,"pi").replace(/σ/g,"sigma").replace(/μ/g,"mu")
 	str = str.replace(/α/g,"alpha").replace(/β/g,"beta").replace(/γ/g,"gamma").replace(/δ/g,"delta").replace(/ε/g,"epsilon").replace(/κ/g,"kappa");
 	str = str.replace(/λ/g,"lambda").replace(/ρ/g,"rho").replace(/τ/g,"tau").replace(/χ/g,"chi").replace(/ω/g,"omega");
@@ -822,7 +826,7 @@ var MQsyntaxtimer = null;
  */
 function syntaxCheckMQ(id, str) {
   clearTimeout(MQsyntaxtimer);
-  var qn = parseInt(id.replace(/\D/g,''));
+  var qn = parseInt(id.replace(/.*qn(\d+)\b.*/g,'$1'));
   MQsyntaxtimer = setTimeout(function() { showSyntaxCheckMQ(qn);}, 1000);
 }
 
@@ -843,9 +847,15 @@ function showSyntaxCheckMQ(qn) {
     previewel.style.position = '';
   } else {
     var previewel = document.getElementById('p'+qn);
-    previewel.innerHTML = outstr;
+    if (previewel) {
+        previewel.innerHTML = outstr;
+    }
   }
-  a11ypreview('`'+htmlEntities(document.getElementById("qn"+qn).value)+'` ' + outstr);
+  if (document.getElementById("qn"+qn)) {
+    a11ypreview('`'+htmlEntities(document.getElementById("qn"+qn).value)+'` ' + outstr);
+  } else {
+    a11ypreview(outstr);
+  }
 }
 
 /**
@@ -1149,11 +1159,11 @@ function processNumber(origstr, format) {
         str = strs[j];
         if (format.indexOf('units')!=-1) {
             var unitformat = _('Units must be given as [decimal number]*[unit]^[power]*[unit]^[power].../[unit]^[power]*[unit]^[power]...');
-            if (!str.match(/^\s*(\d+\.?\d*|\.\d+|\d\.?\d*\s*(E|\*\s*10\s*\^)\s*[\-\+]?\d+)/)) {
+            if (!str.match(/^\s*(-?\s*\d+\.?\d*|-?\s*\.\d+|-?\s*\d\.?\d*\s*(E|\*\s*10\s*\^)\s*[\-\+]?\d+)/)) {
                 err += _('Answer must start with a number. ');
             }
             // strip number
-            str = str.replace(/^\s*(\d\.?\d*\s*(E|\*\s*10\s*\^)\s*[\-\+]?\d+|\d+\.?\d*|\.\d+)\s*[\-\*]?\s*/,'');
+            str = str.replace(/^\s*(-?\s*\d\.?\d*\s*(E|\*\s*10\s*\^)\s*[\-\+]?\d+|-?\s*\d+\.?\d*|-?\s*\.\d+)\s*[\-\*]?\s*/,'');
             str = str.replace(/\s*\-\s*([a-zA-Z])/g,'*$1');
             str = str.replace(/\*\*/g,'^');
             str = str.replace(/\s*(\/|\^|\-)\s*/g,'$1');
@@ -1186,7 +1196,7 @@ function processNumber(origstr, format) {
                 err += _('This is not an integer.');
             }
         } else {
-            if (!str.match(/^\s*\-?(\d+\.?\d*|\.\d+|\d\.?\d*\s*E\s*[\-\+]?\d+)\s*$/)) {
+            if (!str.match(/^\s*\-?(\d+\.?\d*|\.\d+|\d*\.?\d*\s*E\s*[\-\+]?\d+)\s*$/)) {
                 err += _('This is not a decimal or integer value.');
             }
         }
@@ -1444,8 +1454,10 @@ function processSizedMatrix(qn) {
     for (var col=0; col<size[1]; col++) {
       str = document.getElementById('qn' + qn + '-' + count).value;
       str = normalizemathunicode(str);
-      err += syntaxcheckexpr(str,format);
-      err += singlevalsyntaxcheck(str,format);
+      if (str !== '') {
+        err += syntaxcheckexpr(str,format);
+        err += singlevalsyntaxcheck(str,format);
+      }
       out[row][col] = str;
       res = singlevaleval(str, format);
       err += res[1];
@@ -2247,8 +2259,8 @@ function AutoSuggest(elem, suggestions)
 		/********************************************************
 		mouseover handler for the dropdown ul
 		move the highlighted suggestion with the mouse
-		********************************************************/
-		ul.onmouseover = function(ev)
+        ********************************************************/
+        this.setHighlight = function(ev)
 		{
 			//Walk up from target until you find the LI.
 			var target = me.getEventSource(ev);
@@ -2270,7 +2282,8 @@ function AutoSuggest(elem, suggestions)
 				}
 			}
 			me.changeHighlight();
-		};
+        };
+        ul.onmouseover = me.setHighlight;
 
 		/********************************************************
 		click handler for the dropdown ul
@@ -2279,6 +2292,7 @@ function AutoSuggest(elem, suggestions)
         
 		ul.onmousedown = ul.ontouchstart = function(ev)
 		{
+            me.setHighlight(ev);
 			me.useSuggestion("click");
 			me.hideDiv();
 			me.cancelEvent(ev);

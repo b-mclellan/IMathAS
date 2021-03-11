@@ -308,7 +308,7 @@
 
 	$useeditor='review';
 	$placeinhead = '<script type="text/javascript" src="'.$staticroot.'/javascript/rubric_min.js?v=051120"></script>';
-	$placeinhead .= '<script type="text/javascript" src="'.$staticroot.'/javascript/gb-scoretools.js?v=121320"></script>';
+	$placeinhead .= '<script type="text/javascript" src="'.$staticroot.'/javascript/gb-scoretools.js?v=030521"></script>';
 	$placeinhead .= '<link rel="stylesheet" type="text/css" href="'.$staticroot.'/assess2/vue/css/index.css?v='.$lastupdate.'" />';
 	$placeinhead .= '<link rel="stylesheet" type="text/css" href="'.$staticroot.'/assess2/vue/css/gbviewassess.css?v='.$lastupdate.'" />';
 	$placeinhead .= '<link rel="stylesheet" type="text/css" href="'.$staticroot.'/assess2/vue/css/chunk-common.css?v='.$lastupdate.'" />';
@@ -324,7 +324,7 @@
         $placeinhead .= '<script src="'.$staticroot.'/mathquill/mqedlayout.js?v=041920" type="text/javascript"></script>';
     } else {
         $placeinhead .= '<script src="'.$staticroot.'/mathquill/mathquill.min.js?v=100220" type="text/javascript"></script>';
-        $placeinhead .= '<script src="'.$staticroot.'/javascript/assess2_min.js?v=012421" type="text/javascript"></script>';
+        $placeinhead .= '<script src="'.$staticroot.'/javascript/assess2_min.js?v=021021" type="text/javascript"></script>';
     }
 	$placeinhead .= '<link rel="stylesheet" type="text/css" href="'.$staticroot.'/mathquill/mathquill-basic.css">
 	  <link rel="stylesheet" type="text/css" href="'.$staticroot.'/mathquill/mqeditor.css">';
@@ -534,15 +534,28 @@
 			if ($groupdup) {
 				echo '<div class="groupdup">';
             }
+            
             $classes = '';
             if ($qdata['gbrawscore']==1) {
 				$classes = 'qfilter-perfect';
 			} else if ($qdata['gbscore']>0) {
 				$classes = 'qfilter-nonzero';
-			} else if ($qdata['status']=='unattempted') {
-				$classes = 'qfilter-unans';
-			} else {
-				$classes = 'qfilter-zero';
+			} else if ($qdata['status'] != 'unattempted') {
+                $classes = 'qfilter-zero';
+            } else {
+                // it's possible only one part is unattempted
+                $unattempted = true;
+                foreach ($qdata['parts'] as $partdata) {
+                    if ($partdata['try'] > 0) {
+                        $unattempted = false;
+                        break;
+                    }
+                }
+                if ($unattempted) {
+                    $classes = 'qfilter-unans';
+                } else {
+                    $classes = 'qfilter-zero';
+                }
             }
             if (trim($qdata['feedback']) !== '') {
                 $classes .= ' qfilter-fb';
